@@ -170,6 +170,12 @@ function hideElement(element, avatarLink) {
 }
 
 var operations = [
+
+    // =========================
+    // STARTSEITE / FEED (alte Layouts)
+    // =========================
+
+    // Klassische Video-Kacheln auf Startseite / Abo-Feed (yt-formatted-string)
     {
         selector: '.style-scope.ytd-rich-item-renderer',
         linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
@@ -177,6 +183,8 @@ var operations = [
             hideElement(element, avatarLink);
         }
     },
+
+    // Abschnitts-Container (Sections) auf Startseite / gemischte Blöcke
     {
         selector: '.style-scope.ytd-item-section-renderer',
         linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
@@ -184,6 +192,8 @@ var operations = [
             hideElement(element, avatarLink);
         }
     },
+
+    // Vertikale Listen (Suche, Kanäle, Playlists, ältere Layouts)
     {
         selector: '.style-scope.ytd-vertical-list-renderer',
         linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
@@ -191,6 +201,13 @@ var operations = [
             hideElement(element, avatarLink);
         }
     },
+
+
+    // =========================
+    // PLAYER – ENDSCREEN (IM VIDEO)
+    // =========================
+
+    // Endscreen-Vorschläge im Player – kleine Karten
     {
         selector: '.ytp-videowall-still.ytp-suggestion-set.ytp-videowall-still-round-medium',
         linkSelector: 'span.ytp-videowall-still-info-author',
@@ -198,13 +215,8 @@ var operations = [
             hideElement(element, avatarLink);
         }
     },
-    {
-        selector: 'div.style-scope.ytd-compact-video-renderer',
-        linkSelector: 'ytd-channel-name#channel-name yt-formatted-string#text',
-        actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
-        }
-    },
+
+    // Endscreen-Vorschläge im Player – große Karten
     {
         selector: 'a.ytp-videowall-still.ytp-videowall-still-round-large.ytp-suggestion-set',
         linkSelector: 'span.ytp-videowall-still-info-author',
@@ -212,22 +224,51 @@ var operations = [
             hideElement(element, avatarLink);
         }
     },
-    // {
-    //     selector: 'ytd-compact-video-renderer.ytd-watch-next-secondary-results-renderer',
-    //     linkSelector: 'yt-formatted-string.style-scope.ytd-channel-name',
-    //     actionFunction: function(element, avatarLink) {
-    //         hideElement(element, avatarLink);
-    //     }
-    // }
-    // Hauptseite neu:
+
+
+    // =========================
+    // VIDEOPAGE – SEITENLEISTE (alt)
+    // =========================
+
+    // Rechte Seitenleiste neben Video – kompakte Vorschläge (ytd-compact-video-renderer)
+    {
+        selector: 'div.style-scope.ytd-compact-video-renderer',
+        linkSelector: 'ytd-channel-name#channel-name yt-formatted-string#text',
+        actionFunction: function(element, avatarLink) {
+            hideElement(element, avatarLink);
+        }
+    },
+
+
+    // =========================
+    // STARTSEITE / FEED (neues Layout)
+    // =========================
+
+    // Klassische Video-Kacheln – neues Layout mit yt-core-attributed-string
     {
         selector: '.style-scope.ytd-rich-item-renderer',
         linkSelector: 'a.yt-core-attributed-string__link',
         actionFunction: function(element, avatarLink) {
             hideElement(element, avatarLink);
         }
+    },
+
+
+    // =========================
+    // VIDEOPAGE – SEITENLEISTE (neues Lockup View Model)
+    // =========================
+
+    // Rechte Seitenleiste auf Video-Seite – neues yt-lockup-view-model
+    {
+        selector: 'yt-lockup-view-model.ytd-item-section-renderer.lockup.yt-lockup-view-model--wrapper, .ytd-item-section-renderer.lockup.yt-lockup-view-model--wrapper',
+        linkSelector: 'span.yt-core-attributed-string.yt-content-metadata-view-model__metadata-text',
+        actionFunction: function(element, avatarLink) {
+            element.style.display = "none";
+        }
     }
+
 ];
+
 
 function refactorElements(selector, linkSelector, actionFunction) {
     var elementsToCheck = document.querySelectorAll(selector);
