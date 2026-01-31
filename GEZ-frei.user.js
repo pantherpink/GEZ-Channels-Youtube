@@ -3,9 +3,11 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://www.youtube.com/*
 // @grant       GM_xmlhttpRequest
-// @version     2.0
+// @version     2.0.1
 // @author      -
 // @description 1/20/2024, 2:38:58 PM - Updated with GitHub integration
+// @updateURL   https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
+// @downloadURL https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
 // ==/UserScript==
 
 // Konfiguration
