@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEZ-frei - YouTube ohne Rundfunkbeitrag</title>
+    <meta name="description" content="Browser-Userscript das GEZ-finanzierte Kanäle auf YouTube automatisch ausblendet.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-card: #16161a;
+            --bg-glass: rgba(22, 22, 26, 0.7);
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --gradient-1: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --gradient-2: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            --border: rgba(255, 255, 255, 0.08);
+            --radius: 16px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-gradient::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+            animation: drift 20s ease-in-out infinite;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-2%, 2%) rotate(1deg); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 0;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.25rem;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 0 100px;
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+
+        h1 span {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Preview Section */
+        .preview {
+            margin: 60px auto 0;
+            max-width: 800px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .preview-dot:nth-child(1) { background: #ef4444; }
+        .preview-dot:nth-child(2) { background: #eab308; }
+        .preview-dot:nth-child(3) { background: #22c55e; }
+
+        .preview-content {
+            padding: 24px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .preview-content .comment { color: #6b7280; }
+        .preview-content .keyword { color: #c084fc; }
+        .preview-content .string { color: #4ade80; }
+        .preview-content .function { color: #60a5fa; }
+
+        /* Features Section */
+        .features {
+            padding: 120px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-tag {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            padding: 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-1);
+            border-radius: 12px;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* How it Works */
+        .how-it-works {
+            padding: 120px 0;
+            background: var(--bg-secondary);
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .step {
+            position: relative;
+            text-align: center;
+        }
+
+        .step-number {
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 auto 24px;
+        }
+
+        .step h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .step p {
+            color: var(--text-secondary);
+        }
+
+        /* Installation */
+        .installation {
+            padding: 120px 0;
+        }
+
+        .install-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 48px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .install-steps {
+            margin-top: 32px;
+        }
+
+        .install-step {
+            display: flex;
+            gap: 20px;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .install-step:last-child {
+            border-bottom: none;
+        }
+
+        .install-step-num {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent);
+            border-radius: 50%;
+            font-weight: 600;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .install-step-content h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .install-step-content p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .install-step-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .install-step-content a:hover {
+            text-decoration: underline;
+        }
+
+        .code-block {
+            margin-top: 12px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-sm);
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            overflow-x: auto;
+            word-break: break-all;
+        }
+
+        /* Channel List */
+        .channel-info {
+            padding: 120px 0;
+            background: var(--bg-secondary);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .info-content h2 {
+            margin-bottom: 24px;
+        }
+
+        .info-content p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .info-visual {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .channel-list-preview {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            line-height: 2;
+        }
+
+        .channel-list-preview .comment {
+            color: #6b7280;
+        }
+
+        .channel-list-preview .channel {
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .footer-copy {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Mobile */
+        @media (max-width: 640px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .cta-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .install-card {
+                padding: 24px;
+            }
+
+            .install-step {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <nav>
+        <div class="container">
+            <div class="logo">GEZ-frei</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#how-it-works">Funktionsweise</a></li>
+                <li><a href="https://github.com/pantherpink/GEZ-Channels-Youtube">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="badge">
+                <span class="badge-dot"></span>
+                Version 2.0.1 mit Auto-Updates
+            </div>
+            <h1>YouTube.<br><span>GEZ-frei.</span></h1>
+            <p class="hero-subtitle">
+                Ein Browser-Userscript, das Inhalte von GEZ-finanzierten Kanälen auf YouTube automatisch ausblendet. Dein Feed, deine Regeln.
+            </p>
+            <div class="cta-group">
+                <a href="https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js" class="btn btn-primary">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Jetzt installieren
+                </a>
+                <a href="https://github.com/pantherpink/GEZ-Channels-Youtube" class="btn btn-secondary">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+
+            <div class="preview">
+                <div class="preview-header">
+                    <span class="preview-dot"></span>
+                    <span class="preview-dot"></span>
+                    <span class="preview-dot"></span>
+                </div>
+                <div class="preview-content">
+                    <span class="comment">// Konsolen-Output beim Browsen</span><br>
+                    <span class="function">GEZ-Filter</span> initialisiert mit <span class="string">247</span> Kanälen<br>
+                    <span class="function">Versteckt:</span> <span class="string">tagesschau</span><br>
+                    <span class="function">Versteckt:</span> <span class="string">ZDFheute Nachrichten</span><br>
+                    <span class="function">Versteckt:</span> <span class="string">ARD</span><br>
+                    <span class="comment">// Dein Feed ist jetzt sauber</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-tag">Features</p>
+                <h2>Alles was du brauchst</h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🚫</div>
+                    <h3>Automatisches Ausblenden</h3>
+                    <p>Videos und Empfehlungen von GEZ-finanzierten Kanälen werden automatisch aus deinem Feed entfernt.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Auto-Updates</h3>
+                    <p>Das Script aktualisiert sich automatisch. Neue Kanäle werden erkannt, ohne dass du etwas tun musst.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">☁️</div>
+                    <h3>Cloud-Kanalliste</h3>
+                    <p>Die Kanalliste wird von GitHub geladen und täglich aktualisiert. Immer auf dem neuesten Stand.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Performance-optimiert</h3>
+                    <p>Intelligentes Caching und Debouncing sorgen für minimale CPU-Last beim Browsen.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Umfassende Abdeckung</h3>
+                    <p>Funktioniert auf der Startseite, in der Suche, in der Seitenleiste und sogar im Endscreen von Videos.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛠️</div>
+                    <h3>Debug-Tools</h3>
+                    <p>Eingebaute Konsolen-Befehle zum Debuggen, manuellen Updaten und Cache-Management.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-tag">Funktionsweise</p>
+                <h2>So funktioniert es</h2>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Kanalliste laden</h3>
+                    <p>Beim Start lädt das Script die aktuelle Liste aller GEZ-Kanäle von GitHub und speichert sie lokal.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Seite überwachen</h3>
+                    <p>Ein MutationObserver beobachtet YouTube auf neue Inhalte - bei jedem Scroll, jeder Navigation.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Kanäle abgleichen</h3>
+                    <p>Jedes Video wird mit der Kanalliste verglichen. Stimmt der Kanalname überein? Dann wird es versteckt.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Sauberer Feed</h3>
+                    <p>Du siehst nur noch Inhalte von Kanälen, die nicht durch den Rundfunkbeitrag finanziert werden.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="installation" id="installation">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-tag">Installation</p>
+                <h2>In 2 Minuten startklar</h2>
+            </div>
+            <div class="install-card">
+                <div class="install-steps">
+                    <div class="install-step">
+                        <div class="install-step-num">1</div>
+                        <div class="install-step-content">
+                            <h4>Userscript-Manager installieren</h4>
+                            <p>Du brauchst einen Userscript-Manager wie <a href="https://violentmonkey.github.io/" target="_blank">Violentmonkey</a> oder <a href="https://www.tampermonkey.net/" target="_blank">Tampermonkey</a>. Beide sind kostenlos und für alle gängigen Browser verfügbar.</p>
+                        </div>
+                    </div>
+                    <div class="install-step">
+                        <div class="install-step-num">2</div>
+                        <div class="install-step-content">
+                            <h4>Script installieren</h4>
+                            <p>Klicke auf den Button unten oder öffne die URL direkt. Dein Userscript-Manager wird automatisch die Installation anbieten.</p>
+                            <div class="code-block">https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js</div>
+                        </div>
+                    </div>
+                    <div class="install-step">
+                        <div class="install-step-num">3</div>
+                        <div class="install-step-content">
+                            <h4>Fertig!</h4>
+                            <p>Öffne YouTube und genieße deinen bereinigten Feed. Das Script läuft ab sofort automatisch und aktualisiert sich selbst.</p>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 32px;">
+                    <a href="https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js" class="btn btn-primary">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        Script installieren
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="channel-info">
+        <div class="container">
+            <div class="info-grid">
+                <div class="info-content">
+                    <h2>Die Kanalliste</h2>
+                    <p>Die Liste der GEZ-finanzierten Kanäle wird zentral auf GitHub gepflegt und regelmäßig aktualisiert.</p>
+                    <p>Du kannst selbst Kanäle zur Liste hinzufügen, indem du einen Pull Request auf GitHub erstellst oder ein Issue öffnest.</p>
+                    <p>Die Liste unterstützt Kommentare mit # und wird alle 24 Stunden automatisch synchronisiert.</p>
+                    <a href="https://github.com/pantherpink/GEZ-Channels-Youtube/blob/main/GEZ-Channels.txt" class="btn btn-secondary" style="margin-top: 16px;">
+                        Kanalliste ansehen
+                    </a>
+                </div>
+                <div class="info-visual">
+                    <div class="channel-list-preview">
+                        <span class="comment"># GEZ-Channels.txt</span><br>
+                        <span class="comment"># Öffentlich-rechtliche Kanäle</span><br><br>
+                        <span class="channel">tagesschau</span><br>
+                        <span class="channel">ZDFheute Nachrichten</span><br>
+                        <span class="channel">ARD</span><br>
+                        <span class="channel">ZDF</span><br>
+                        <span class="channel">funk</span><br>
+                        <span class="channel">...</span><br><br>
+                        <span class="comment"># 247+ Kanäle und wachsend</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="https://github.com/pantherpink/GEZ-Channels-Youtube">GitHub</a>
+                    <a href="https://github.com/pantherpink/GEZ-Channels-Youtube/issues">Issues</a>
+                    <a href="https://github.com/pantherpink/GEZ-Channels-Youtube/blob/main/LICENSE">Lizenz</a>
+                </div>
+                <p class="footer-copy">Made with purpose. Open Source.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
