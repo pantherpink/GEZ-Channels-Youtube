@@ -3,7 +3,7 @@
 // @namespace Violentmonkey Scripts
 // @match https://www.youtube.com/*
 // @grant GM_xmlhttpRequest
-// @version 2.0.3
+// @version 2.0.4
 // @author -
 // @description 1/20/2024, 2:38:58 PM - Updated with GitHub integration + lockup support
 // @updateURL https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
@@ -259,6 +259,8 @@ function refactorElements(selector, linkSelector, actionFunction) {
     let debounceTimer = null;
     let isRunning = false;
     let isInitialized = false;
+    let rafId = null;   // ← hinzugefügt für sauberes Cleanup
+
     // Initialisierung der Kanalliste
     async function initialize() {
         if (isInitialized) return;
@@ -299,7 +301,6 @@ function refactorElements(selector, linkSelector, actionFunction) {
         }
     }
     // OPTION 3: RequestAnimationFrame (sync mit Browser-Rendering)
-    let rafId = null;
     function rafHideElements() {
         if (rafId) return; // Bereits geplant
         rafId = requestAnimationFrame(() => {
