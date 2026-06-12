@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name        Youtube.com - GEZ frei!
-// @namespace   Violentmonkey Scripts
-// @match       https://www.youtube.com/*
-// @grant       GM_xmlhttpRequest
-// @version     2.0.1
-// @author      -
-// @description 1/20/2024, 2:38:58 PM - Updated with GitHub integration
-// @updateURL   https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
+// @name Youtube.com - GEZ frei!
+// @namespace Violentmonkey Scripts
+// @match https://www.youtube.com/*
+// @grant GM_xmlhttpRequest
+// @version 2.0.2
+// @author -
+// @description 1/20/2024, 2:38:58 PM - Updated with GitHub integration + lockup support
+// @updateURL https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
 // @downloadURL https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-frei.user.js
 // ==/UserScript==
 
@@ -15,7 +15,7 @@ const CONFIG = {
     GITHUB_URL: 'https://raw.githubusercontent.com/pantherpink/GEZ-Channels-Youtube/refs/heads/main/GEZ-Channels.txt',
     CACHE_KEY: 'gezChannelsList',
     CACHE_TIMESTAMP_KEY: 'gezChannelsListTimestamp',
-    UPDATE_INTERVAL: 24 * 60 * 60 * 1000, // 24 Stunden in Millisekunden
+    UPDATE_INTERVAL: 24 * 60 * 60 * 1000, // 24 Stunden
 };
 
 // Channel-Liste Management
@@ -27,26 +27,20 @@ class ChannelListManager {
 
     async loadChannels() {
         try {
-            // Versuche zuerst aus dem Cache zu laden
             const cachedChannels = this.loadFromCache();
             if (cachedChannels && cachedChannels.length > 0) {
                 this.channels = cachedChannels;
                 this.isLoaded = true;
                 console.log('GEZ-Kanäle aus Cache geladen:', this.channels.length, 'Einträge');
-
-                // Prüfe ob Update nötig ist (asynchron)
                 this.checkForUpdates();
                 return this.channels;
             }
 
-            // Falls kein Cache vorhanden, lade von GitHub
             console.log('Kein Cache gefunden, lade von GitHub...');
             await this.updateFromGitHub();
             return this.channels;
-
         } catch (error) {
             console.error('Fehler beim Laden der Kanalliste:', error);
-            // Keine Fallback-Liste - Script wartet auf erfolgreichen GitHub-Zugriff
             throw error;
         }
     }
@@ -55,7 +49,6 @@ class ChannelListManager {
         try {
             const cached = localStorage.getItem(CONFIG.CACHE_KEY);
             const timestamp = localStorage.getItem(CONFIG.CACHE_TIMESTAMP_KEY);
-
             if (!cached || !timestamp) return null;
 
             const cacheAge = Date.now() - parseInt(timestamp);
@@ -63,7 +56,6 @@ class ChannelListManager {
                 console.log('Cache ist veraltet, wird aktualisiert...');
                 return null;
             }
-
             return JSON.parse(cached);
         } catch (error) {
             console.error('Fehler beim Lesen des Caches:', error);
@@ -74,7 +66,6 @@ class ChannelListManager {
     async checkForUpdates() {
         const timestamp = localStorage.getItem(CONFIG.CACHE_TIMESTAMP_KEY);
         if (!timestamp) return;
-
         const cacheAge = Date.now() - parseInt(timestamp);
         if (cacheAge > CONFIG.UPDATE_INTERVAL) {
             console.log('Cache-Update erforderlich...');
@@ -84,54 +75,38 @@ class ChannelListManager {
 
     async updateFromGitHub() {
         return new Promise((resolve, reject) => {
-            console.log('Lade Kanalliste von GitHub...');
-
-            // GM_xmlhttpRequest umgeht CORS-Probleme
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: CONFIG.GITHUB_URL,
                 onload: (response) => {
                     try {
                         if (response.status !== 200) {
-                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            throw new Error(`HTTP ${response.status}`);
                         }
-
                         const newChannels = this.parseChannelList(response.responseText);
-
                         if (newChannels.length === 0) {
                             throw new Error('Leere Kanalliste erhalten');
                         }
 
-                        // Speichere im Cache
                         localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(newChannels));
                         localStorage.setItem(CONFIG.CACHE_TIMESTAMP_KEY, Date.now().toString());
-
                         this.channels = newChannels;
                         this.isLoaded = true;
-
                         console.log('Kanalliste erfolgreich aktualisiert:', newChannels.length, 'Einträge');
                         resolve(newChannels);
-
                     } catch (error) {
                         reject(error);
                     }
                 },
-                onerror: (error) => {
-                    reject(new Error('Netzwerkfehler beim Laden von GitHub: ' + error));
-                },
-                ontimeout: () => {
-                    reject(new Error('Timeout beim Laden von GitHub'));
-                },
-                timeout: 10000 // 10 Sekunden Timeout
+                onerror: () => reject(new Error('Netzwerkfehler')),
+                ontimeout: () => reject(new Error('Timeout')),
+                timeout: 10000
             });
         }).catch(error => {
             console.error('Fehler beim Laden von GitHub:', error);
-
-            // Wenn bereits eine gecachte Version vorhanden ist, diese weiter verwenden
             if (this.channels.length === 0) {
-                console.error('Keine Kanalliste verfügbar - Script funktioniert erst nach erfolgreichem GitHub-Zugriff');
+                console.error('Keine Kanalliste verfügbar');
             }
-
             throw error;
         });
     }
@@ -140,7 +115,7 @@ class ChannelListManager {
         return text
             .split('\n')
             .map(line => line.trim())
-            .filter(line => line.length > 0 && !line.startsWith('#')); // Erlaube Kommentare mit #
+            .filter(line => line.length > 0 && !line.startsWith('#'));
     }
 
     getChannels() {
@@ -149,134 +124,94 @@ class ChannelListManager {
 
     isChannelHidden(channelName) {
         if (!this.isLoaded) return false;
-
         const cleanName = channelName.split("•")[0].trim();
         return this.channels.some(name => cleanName === name);
     }
 }
 
-// Globale Instanz des Channel Managers
+// Globale Instanz
 const channelManager = new ChannelListManager();
 
-function replaceElement(element, avatarLink) {
-    var div = document.createElement('div');
-    element.parentNode.remove();
-    console.log("Found a channel video", avatarLink.innerText);
-}
-
-function hideElement(element, avatarLink) {
-    if (element.parentNode.style.display != "none") {
-        element.parentNode.style.display = "none";
-        console.log("Versteckt:", avatarLink.innerText);
+function hideElement(element) {
+    const container = element.closest('ytd-rich-item-renderer') || 
+                     element.closest('yt-lockup-view-model') || 
+                     element.parentNode;
+    
+    if (container && container.style.display !== "none") {
+        container.style.display = "none";
+        console.log("Versteckt:", element.innerText.trim());
     }
 }
 
 var operations = [
-
     // =========================
-    // STARTSEITE / FEED (alte Layouts)
+    // STARTSEITE / FEED
     // =========================
-
-    // Klassische Video-Kacheln auf Startseite / Abo-Feed (yt-formatted-string)
     {
-        selector: '.style-scope.ytd-rich-item-renderer',
-        linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
+        selector: 'ytd-rich-item-renderer',
+        linkSelector: 'a.ytAttributedStringLink, a.yt-core-attributed-string__link, a.yt-simple-endpoint.style-scope.yt-formatted-string',
         actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
+            hideElement(avatarLink);
         }
     },
 
-    // Abschnitts-Container (Sections) auf Startseite / gemischte Blöcke
+    // =========================
+    // yt-lockup-view-model (neuestes Layout 2026)
+    // =========================
+    {
+        selector: 'ytd-rich-item-renderer yt-lockup-view-model',
+        linkSelector: 'a.ytAttributedStringLink',
+        actionFunction: function(element, avatarLink) {
+            hideElement(avatarLink);
+        }
+    },
+
+    // =========================
+    // Abschnitts-Container
+    // =========================
     {
         selector: '.style-scope.ytd-item-section-renderer',
-        linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
+        linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string, a.ytAttributedStringLink',
         actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
+            hideElement(avatarLink);
         }
     },
 
-    // Vertikale Listen (Suche, Kanäle, Playlists, ältere Layouts)
-    {
-        selector: '.style-scope.ytd-vertical-list-renderer',
-        linkSelector: 'a.yt-simple-endpoint.style-scope.yt-formatted-string',
-        actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
-        }
-    },
-
-
     // =========================
-    // PLAYER – ENDSCREEN (IM VIDEO)
+    // PLAYER – ENDSCREEN
     // =========================
-
-    // Endscreen-Vorschläge im Player – kleine Karten
     {
-        selector: '.ytp-videowall-still.ytp-suggestion-set.ytp-videowall-still-round-medium',
+        selector: '.ytp-videowall-still',
         linkSelector: 'span.ytp-videowall-still-info-author',
         actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
+            hideElement(avatarLink);
         }
     },
 
-    // Endscreen-Vorschläge im Player – große Karten
+    // =========================
+    // VIDEOPAGE – SEITENLEISTE (alt + neu)
+    // =========================
     {
-        selector: 'a.ytp-videowall-still.ytp-videowall-still-round-large.ytp-suggestion-set',
-        linkSelector: 'span.ytp-videowall-still-info-author',
+        selector: 'ytd-compact-video-renderer, div.style-scope.ytd-compact-video-renderer',
+        linkSelector: 'ytd-channel-name#channel-name yt-formatted-string#text, a.ytAttributedStringLink',
         actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
+            hideElement(avatarLink);
         }
     },
 
-
-    // =========================
-    // VIDEOPAGE – SEITENLEISTE (alt)
-    // =========================
-
-    // Rechte Seitenleiste neben Video – kompakte Vorschläge (ytd-compact-video-renderer)
+    // yt-lockup in Seitenleiste
     {
-        selector: 'div.style-scope.ytd-compact-video-renderer',
-        linkSelector: 'ytd-channel-name#channel-name yt-formatted-string#text',
+        selector: 'yt-lockup-view-model.ytd-item-section-renderer',
+        linkSelector: 'span.yt-core-attributed-string.yt-content-metadata-view-model__metadata-text, a.ytAttributedStringLink',
         actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
-        }
-    },
-
-
-    // =========================
-    // STARTSEITE / FEED (neues Layout)
-    // =========================
-
-    // Klassische Video-Kacheln – neues Layout mit yt-core-attributed-string
-    {
-        selector: '.style-scope.ytd-rich-item-renderer',
-        linkSelector: 'a.yt-core-attributed-string__link',
-        actionFunction: function(element, avatarLink) {
-            hideElement(element, avatarLink);
-        }
-    },
-
-
-    // =========================
-    // VIDEOPAGE – SEITENLEISTE (neues Lockup View Model)
-    // =========================
-
-    // Rechte Seitenleiste auf Video-Seite – neues yt-lockup-view-model
-    {
-        selector: 'yt-lockup-view-model.ytd-item-section-renderer.lockup.yt-lockup-view-model--wrapper, .ytd-item-section-renderer.lockup.yt-lockup-view-model--wrapper',
-        linkSelector: 'span.yt-core-attributed-string.yt-content-metadata-view-model__metadata-text',
-        actionFunction: function(element, avatarLink) {
-            element.style.display = "none";
+            hideElement(avatarLink);
         }
     }
-
 ];
 
-
 function refactorElements(selector, linkSelector, actionFunction) {
-    var elementsToCheck = document.querySelectorAll(selector);
-
-    elementsToCheck.forEach(function(element) {
-        var avatarLink = element.querySelector(linkSelector);
+    document.querySelectorAll(selector).forEach(function(element) {
+        const avatarLink = element.querySelector(linkSelector);
         if (avatarLink && channelManager.isChannelHidden(avatarLink.innerText)) {
             actionFunction(element, avatarLink);
         }
@@ -285,33 +220,26 @@ function refactorElements(selector, linkSelector, actionFunction) {
 
 (function() {
     'use strict';
-
     let debounceTimer = null;
     let isRunning = false;
     let isInitialized = false;
 
-    // Initialisierung der Kanalliste
     async function initialize() {
         if (isInitialized) return;
-
         try {
             await channelManager.loadChannels();
             console.log('GEZ-Filter initialisiert mit', channelManager.getChannels().length, 'Kanälen');
             isInitialized = true;
-
-            // Erste Ausführung nach dem Laden der Liste
             hideElements();
-
         } catch (error) {
             console.error('Fehler bei der Initialisierung:', error);
-            isInitialized = true; // Trotzdem als initialisiert markieren, um Endlosschleifen zu vermeiden
+            isInitialized = true;
         }
     }
 
     function hideElements() {
         if (!isInitialized || isRunning) return;
         isRunning = true;
-
         try {
             operations.forEach(function(op) {
                 refactorElements(op.selector, op.linkSelector, op.actionFunction);
@@ -321,87 +249,32 @@ function refactorElements(selector, linkSelector, actionFunction) {
         }
     }
 
-    // OPTION 1: Debouncing (wartet bis Ruhe einkehrt)
     function debouncedHideElements() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(hideElements, 150); // 150ms Verzögerung
+        debounceTimer = setTimeout(hideElements, 150);
     }
 
-    // OPTION 2: Throttling (maximal alle X ms)
-    let lastExecution = 0;
-    function throttledHideElements() {
-        const now = Date.now();
-        if (now - lastExecution >= 200) { // Maximal alle 200ms
-            lastExecution = now;
-            hideElements();
-        }
-    }
-
-    // OPTION 3: RequestAnimationFrame (sync mit Browser-Rendering)
-    let rafId = null;
-    function rafHideElements() {
-        if (rafId) return; // Bereits geplant
-        rafId = requestAnimationFrame(() => {
-            hideElements();
-            rafId = null;
-        });
-    }
-
-    // MutationObserver mit gewählter Optimierung
-    const observer = new MutationObserver(function(mutations) {
-        // Nur bei relevanten Änderungen reagieren
-        let shouldUpdate = false;
-        for (let mutation of mutations) {
-            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                // Prüfe ob hinzugefügte Nodes relevant sind
-                for (let node of mutation.addedNodes) {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        shouldUpdate = true;
-                        break;
-                    }
-                }
-            }
-            if (shouldUpdate) break;
-        }
-
-        if (shouldUpdate && isInitialized) {
-            // Wähle eine der drei Optionen:
-            debouncedHideElements();  // Empfohlen für die meisten Fälle
-            // throttledHideElements(); // Alternative
-            // rafHideElements();       // Für sehr häufige Updates
-        }
+    const observer = new MutationObserver(() => {
+        if (isInitialized) debouncedHideElements();
     });
 
-    // Start observin' the whole body for changes in child elements.
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initialisierung starten
     initialize();
 
-    // Regelmäßige Updates prüfen (alle 6 Stunden)
-    setInterval(() => {
-        channelManager.checkForUpdates();
-    }, 6 * 60 * 60 * 1000);
+    // Regelmäßige Updates
+    setInterval(() => channelManager.checkForUpdates(), 6 * 60 * 60 * 1000);
 
-    // Optional: Cleanup bei Bedarf
-    window.cleanupUserScript = function() {
-        observer.disconnect();
-        clearTimeout(debounceTimer);
-        if (rafId) cancelAnimationFrame(rafId);
-    };
-
-    // Debug-Funktion für die Konsole
+    // Debug Tools
     window.gezDebug = {
         getChannels: () => channelManager.getChannels(),
         forceUpdate: () => channelManager.updateFromGitHub(),
         clearCache: () => {
             localStorage.removeItem(CONFIG.CACHE_KEY);
             localStorage.removeItem(CONFIG.CACHE_TIMESTAMP_KEY);
-            console.log('Cache gelöscht');
+            console.log('Cache gelöscht - Seite neu laden!');
         }
     };
 
+    window.cleanupUserScript = () => observer.disconnect();
 })();
